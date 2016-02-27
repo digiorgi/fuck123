@@ -52,3 +52,12 @@
 		    :childs nil))
 	     parent-set-1))))
    parent-set-0))
+
+(let* ((f (make-function :comp #'equalp
+			       :comp-des "equalp"
+			       :fun-a (lambda () '(1 2 (2 4)))
+			       :fun-a-des "'(1 2 (2 4))"
+			       :fun-b (lambda () '(1 2 (2 4)))
+			       :fun-b-des "'(1 2 (2 4))"))
+       (r (testosterone::function-run f)))
+  (testosterone::function-error-msg r))
