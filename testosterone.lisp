@@ -62,7 +62,7 @@
 	      (if (eql comp-r t)
 		  (make-function-success t)
 		  (make-function-error
-		   (format nil "(~a ~a ~a)=>~%~a"
+		   (format nil "(~a ~a ~a) =>~%~a"
 			   comp-des
 			   a-des
 			   b-des
@@ -99,9 +99,11 @@
 	      this)))
 (defun string+ (&rest args)
   (apply #'concatenate 'string args))
-(defmethod set-add-backtrace-to-error ((this <set>) (function-error <function-error>))
-  (let* ((parents (loop for set = this then (set-parent set)
-		     while set collecting set))
+(defmethod set-add-backtrace-to-error ((this <set>)
+				       (function-error <function-error>))
+  (let* ((parents (nreverse
+		   (loop for set = this then (set-parent set)
+		      while set collecting set)))
 	 (trace-msg-list (loop for set in parents
 			    collecting
 			      (string+ (set-description set) "~% ")))
