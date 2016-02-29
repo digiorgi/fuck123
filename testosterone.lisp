@@ -19,7 +19,7 @@
     (slot-value f 'error-msg))
 (defclass <function-success> (<function-result>)
   ((result-value :initarg :result :initform (error "Need a result value"))))
-(defun make-function-sucess (result)
+(defun make-function-success (result)
   (make-instance '<function-success> :result result))
 (defmethod function-successp ((f <function-success>)) f)
 (defmethod function-errorp ((f <function-success>)) nil)
@@ -46,7 +46,7 @@
 		 :fun-b-des fun-b-des))
 (defun secure-lambda-call (f f-description)
   (handler-case	
-    (make-function-sucess (funcall f))
+    (make-function-success (funcall f))
     (condition (my-condition)
       (make-function-error
        (format nil "~a: ~a" f-description my-condition)))))
@@ -60,7 +60,7 @@
 	(if (function-errorp comp-r) comp-r
 	    (let ((comp-r (function-result-value comp-r)))
 	      (if (eql comp-r t)
-		  (make-function-sucess t)
+		  (make-function-success t)
 		  (make-function-error
 		   (format nil "(~a ~a ~a)=>~%~a"
 			   comp-des
@@ -92,6 +92,7 @@
 		 :functions functions))
 (defgeneric set-test (set))
 (defgeneric set-add-backtrace-to-error (set error))
+(defgeneric set-test-all-childs (set))
 (defmethod initialize-instance :after ((this <set>) &key)
   (loop for child in (slot-value this 'childs-set)
      do (setf (slot-value child 'parent-set)
@@ -114,8 +115,14 @@
 	    until (function-errorp function-result)
 	    finally (return function-result))))
     (if (function-successp function-result)
-	function-result
+	(set-test-all-childs set)
 	(set-add-backtrace-to-error set function-result))))
+(defmethod set-test-all-childs ((set <set>))
+  (or (loop for child in (set-childs set)
+	 for function-result = (set-test child)
+	 until (function-errorp function-result)
+	 finally (return function-result))
+      (make-function-success t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;TEST ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -39,9 +39,9 @@
     :functions
     (list (make-function :comp #'equalp
 			 :comp-des "equalp"
-			 :fun-a (lambda () (print "himan") "asdasd")
-			 :fun-a-des "asd"
-			 :fun-b (lambda () "ASdsdasdadadasdasdasasdasadasdas")
+			 :fun-a (lambda () "ASdsdasdadadasdasdasasdasadasdas")
+			 :fun-a-des "ASdsdasdadadasdasdasasdasadasdas"
+			 :fun-b (lambda () "ASd")
 			 :fun-b-des "Asd"))
     :childs nil))))
 
