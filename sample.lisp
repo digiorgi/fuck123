@@ -3,7 +3,7 @@
 
 (in-package :testosterone.sample)
 
-(tests "This is a demostrations")
+(def-test "This is a demostrations")
 
 (-- "EQL and EQUALP should work"
     (equalp '(1 2 (2 4)) '(1 2 (2 4)))

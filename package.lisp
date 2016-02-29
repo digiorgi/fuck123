@@ -4,8 +4,6 @@
   (:use #:cl)
   (:export :is :isnt
 	   :--
-	   :make-function
-	   :make-set
-	   :make-test
-	   :test-add))
+	   :def-test
+	   :run-test))
 

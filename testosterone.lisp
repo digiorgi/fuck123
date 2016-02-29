@@ -150,7 +150,8 @@
 (defun is (x y) "equalp" (equalp x y))
 (defun isnt (x y) "not equalp" (not (equalp x y)))
 (defun test-package (package)
-  (let ((test (symbol-value (find-symbol "*TESTOSTERONE-TEST*" package))))
+  (let* ((symbol (find-symbol "*TESTOSTERONE-TEST*" package) )
+	 (test (and (boundp symbol) (symbol-value symbol))))
     (if test
 	(test-run test)
 	(warn "No test found in package ~a" (package-name package)))))
@@ -166,3 +167,56 @@
     (loop for i in packages-to-test do
 	 (test-package (find-package i)))
     packages-to-test))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; MACRO;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defmacro mdefun (f-name args &body body)
+  `(eval-when (:compile-toplevel :load-toplevel :execute)
+     (defun ,f-name ,args ,@body)))
+(mdefun to-string (x)
+  (format nil "~a" x))
+(mdefun expand-to-make-function (statment)
+  (destructuring-bind (comparison a-value b-value) statment
+    `(make-function :comp       (function ,comparison)
+		    :comp-des  ,(to-string comparison)
+		    :fun-a      (lambda () ,a-value)
+		    :fun-a-des ,(to-string a-value)
+		    :fun-b      (lambda () ,b-value)
+		    :fun-b-des ,(to-string b-value))))
+(mdefun set-definitionp (statment)
+  (equalp '-- (car statment)))
+(mdefun make-function-definitionp (statment &optional (software))
+  (not (set-definitionp statment)))
+(mdefun expand-set-definition (in-statments &key (top-level nil))
+  (destructuring-bind (_ description &rest statments) in-statments
+    (declare (ignore _))
+    (let* ((make-function-definitions
+	    (remove-if-not #'make-function-definitionp statments))
+	   (set-definitions
+	    (remove-if-not #'set-definitionp statments))
+	   (functions (mapcar #'expand-to-make-function
+			      make-function-definitions))
+	   (childs (mapcar #'expand-set-definition
+			   set-definitions))
+	   (make-set
+	    `(make-set
+	      :description ,description
+	      :functions  (list ,@functions)
+	      :childs     (list ,@childs))))
+      (if top-level
+	  `(test-add ,(intern "*TESTOSTERONE-TEST*" *package*) ,make-set)
+	  make-set))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; EXTERNAL INTERFACE;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defmacro -- (&body body)
+  (expand-set-definition (cons '-- body) :top-level t))
+(defmacro def-test (test-description)
+  `(defparameter ,(intern "*TESTOSTERONE-TEST*" *package*)
+     (make-test ,test-description)))
+(defmacro run-test (package-symbol)
+  `(test-packages-starting-with (quote ,package-symbol)))
