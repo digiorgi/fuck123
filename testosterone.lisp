@@ -66,7 +66,7 @@
 			   comp-des
 			   a-des
 			   b-des
-			   (function-result-value b)))))))
+			   comp-r))))))
       a-result))
 (defgeneric function-run (function))
 (defmethod function-run ((function <function>))
@@ -83,18 +83,39 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defclass <set> ()
   ((parent-set :reader set-parent :initarg :parent :initform nil)
-   (child-set :reader fact-childs :initarg :childs :initform nil)
-   (description :reader fact-description :initarg :description)
+   (childs-set :reader set-childs :initarg :childs :initform nil)
+   (description :reader set-description :initarg :description)
    (functions :documentation "list of <function>"
-	      :reader functions :initarg :functions)))
-(defun make-set (&key parent childs description functions)
-  (make-instance '<set> :parent parent :childs childs :description description
+	      :reader set-functions :initarg :functions)))
+(defun make-set (&key childs description functions)
+  (make-instance '<set> :childs childs :description description
 		 :functions functions))
-(defgeneric set-test (set)
-  (:documentation "Returns T if all is ok, otherwise print a description of 
-                   the error"))
+(defgeneric set-test (set))
+(defgeneric set-add-backtrace-to-error (set error))
+(defmethod initialize-instance :after ((this <set>) &key)
+  (loop for child in (slot-value this 'childs-set)
+     do (setf (slot-value child 'parent-set)
+	      this)))
+(defun string+ (&rest args)
+  (apply #'concatenate 'string args))
+(defmethod set-add-backtrace-to-error ((this <set>) (function-error <function-error>))
+  (let* ((parents (loop for set = this then (set-parent set)
+		     while set collecting set))
+	 (trace-msg-list (loop for set in parents
+			    collecting
+			      (string+ (set-description set) "~% ")))
+	 (trace-msg (reduce #'string+ trace-msg-list)))
+    (make-function-error
+     (string+ trace-msg (function-error-msg function-error)))))
 (defmethod set-test ((set <set>))
-  )
+  (let ((function-result
+	 (loop for function in (set-functions set)
+	    for function-result = (function-run function)
+	    until (function-errorp function-result)
+	    finally (return function-result))))
+    (if (function-successp function-result)
+	function-result
+	(set-add-backtrace-to-error set function-result))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;TEST ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -110,7 +131,13 @@
 (defmethod test-add ((test <test>) (set <set>))
   (push set (test-sets test)))
 (defmethod test-run ((test <test>))
-  (loop for set in (test-sets test) while (set-test)))
+  (loop for set in (test-sets test)
+     for function-result = (set-test set)
+     until (function-errorp function-result)
+     finally (when (function-errorp function-result)
+	       (format t
+		       (string+ (function-error-msg function-result) "~%")))
+       (return function-result)))
 (defun is (x y) "equalp" (equalp x y))
 (defun isnt (x y) "not equalp" (not (equalp x y)))
 (defun test-package (package)
