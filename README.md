@@ -1,5 +1,6 @@
 # TESTOSTERONE
 
+```lisp
 (def-test "This is a demostrations")
 
 (-- "EQL and EQUALP should work"
@@ -8,3 +9,4 @@
     
     (-- "Also we need to test it with strings"
 	(equalp "asd" "ASd")))
+```
