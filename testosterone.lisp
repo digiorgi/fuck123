@@ -8,7 +8,7 @@
 (defgeneric function-error-msg (function))
 (defgeneric function-result-value (function))
 (defgeneric function-errorp (functionp))
-(defclass <function-error> (<function-result>)s
+(defclass <function-error> (<function-result>)
   ((error-msg :accessor function-error-msg
 	      :initarg :msg :initform (error "An error msg is needed"))))
 (defun make-function-error (error-msg)
@@ -25,11 +25,6 @@
 (defmethod function-errorp ((f <function-success>)) nil)
 (defmethod function-result-value ((f <function-result>))
   (slot-value f 'result-value))
-(defmacro if-function-success (functions body-t body-nil)
-  `(if (and ,@(loop for f in functions collecting `(function-successp ,f)))
-     (let ,(loop for f in functions collecting `(,f (function-value ,f)))
-       ,@body-t)
-     (progn ,@body-nil)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FUNCTION ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -61,7 +56,7 @@
       (let* ((a (function-result-value a-result))
 	     (b (function-result-value b-result))
 	     (comp-r
-	      (secure-lambda-call (lambda () (funcall comp () a b)) comp-des)))
+	      (secure-lambda-call (lambda () (funcall comp a b)) comp-des)))
 	(if (function-errorp comp-r) comp-r
 	    (let ((comp-r (function-result-value comp-r)))
 	      (if (eql comp-r t)
@@ -81,7 +76,7 @@
 	   (r (secure-comp-call comp a b comp-des fun-a-des fun-b-des))
 	   (some-error (some #'function-errorp (list a b r))))
       (or some-error
-	  t))))
+	  r))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;SET ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
