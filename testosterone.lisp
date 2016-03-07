@@ -15,8 +15,6 @@
   (make-instance '<function-error> :msg error-msg))
 (defmethod function-successp ((f <function-error>)) nil)
 (defmethod function-errorp ((f <function-error>)) f)
-(defmethod function-error-msg ((f <function-error>))
-    (slot-value f 'error-msg))
 (defclass <function-success> (<function-result>)
   ((result-value :initarg :result :initform (error "Need a result value"))))
 (defun make-function-success (result)
@@ -110,15 +108,19 @@
 	 (trace-msg (reduce #'string+ trace-msg-list)))
     (make-function-error
      (string+ trace-msg (function-error-msg function-error)))))
-(defmethod set-test ((set <set>))
-  (let ((function-result
-	 (loop for function in (set-functions set)
-	    for function-result = (function-run function)
-	    until (function-errorp function-result)
-	    finally (return function-result))))
+(defmethod set-test-all-functions ((this <set>))
+  (let ((functions (set-functions this)))
+    (if (not functions)
+	(make-function-success nil)
+	(loop for function in functions
+	   for function-result = (function-run function)
+	   until (function-errorp function-result)
+	   finally (return function-result)))))
+(defmethod set-test ((this <set>))
+  (let ((function-result (set-test-all-functions this)))
     (if (function-successp function-result)
-	(set-test-all-childs set)
-	(set-add-backtrace-to-error set function-result))))
+	(set-test-all-childs this)
+	(set-add-backtrace-to-error this function-result))))
 (defmethod set-test-all-childs ((set <set>))
   (or (loop for child in (set-childs set)
 	 for function-result = (set-test child)
@@ -147,16 +149,14 @@
 	       (format t
 		       (string+ (function-error-msg function-result) "~%")))
        (return function-result)))
-(defun is (x y) "equalp" (equalp x y))
-(defun isnt (x y) "not equalp" (not (equalp x y)))
 (defun test-package (package)
   (let* ((symbol (find-symbol "*TESTOSTERONE-TEST*" package) )
 	 (test (and (boundp symbol) (symbol-value symbol))))
     (if test
 	(test-run test)
 	(warn "No test found in package ~a" (package-name package)))))
-(defun test-packages-starting-with (package-symbol)
-  (let* ((package-pattern (package-name (find-package package-symbol)))
+(defun test-packages-starting-with (package-name-string)
+  (let* ((package-pattern package-name-string)
 	 (pattern-size (1- (length package-pattern)))
 	 (is-valid-package (lambda (package-name)(search package-pattern package-name
 						    :start2 0
@@ -168,26 +168,26 @@
 	 (test-package (find-package i)))
     packages-to-test))
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; MACRO;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; MACRO;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmacro mdefun (f-name args &body body)
   `(eval-when (:compile-toplevel :load-toplevel :execute)
      (defun ,f-name ,args ,@body)))
 (mdefun to-string (x)
   (format nil "~a" x))
-(mdefun expand-to-make-function (statment)
-  (destructuring-bind (comparison a-value b-value) statment
-    `(make-function :comp       (function ,comparison)
-		    :comp-des  ,(to-string comparison)
-		    :fun-a      (lambda () ,a-value)
-		    :fun-a-des ,(to-string a-value)
-		    :fun-b      (lambda () ,b-value)
-		    :fun-b-des ,(to-string b-value))))
+(mdefun expand-to-make-function (statement)
+  (let ((statement (macroexpand statement)))
+    (destructuring-bind (comparison a-value b-value) statement
+      `(make-function :comp       (function ,comparison)
+		      :comp-des  ,(to-string comparison)
+		      :fun-a      (lambda () ,a-value)
+		      :fun-a-des ,(to-string a-value)
+		      :fun-b      (lambda () ,b-value)
+		      :fun-b-des ,(to-string b-value)))))
 (mdefun set-definitionp (statment)
   (equalp '-- (car statment)))
-(mdefun make-function-definitionp (statment &optional (software))
+(mdefun make-function-definitionp (statment)
   (not (set-definitionp statment)))
 (mdefun expand-set-definition (in-statments &key (top-level nil))
   (destructuring-bind (_ description &rest statments) in-statments
@@ -209,14 +209,18 @@
 	  `(test-add ,(intern "*TESTOSTERONE-TEST*" *package*) ,make-set)
 	  make-set))))
 
+(defmacro is (x y) `(equalp ,x ,y))
+(defmacro isnt (x y) `(equalp nil (equalp ,x ,y)))
+(defmacro truep (x) `(equalp t (and ,x t)))
+(defmacro nilp  (x) `(equalp nil (and ,x nil)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; EXTERNAL INTERFACE;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; EXTERNAL INTERFACE;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmacro -- (&body body)
   (expand-set-definition (cons '-- body) :top-level t))
-(defmacro def-test (test-description)
+(defmacro deftest (test-description)
   `(defparameter ,(intern "*TESTOSTERONE-TEST*" *package*)
      (make-test ,test-description)))
-(defmacro run-test (package-symbol)
-  `(test-packages-starting-with (quote ,package-symbol)))
+(defun runtest (package-string)
+  (test-packages-starting-with package-string))

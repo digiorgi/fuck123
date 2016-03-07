@@ -2,8 +2,11 @@
 
 (defpackage #:testosterone
   (:use #:cl)
-  (:export :is :isnt
-	   :--
-	   :def-test
-	   :run-test))
+  (:export :--
+	   :deftest
+	   :runtest
+	   :is
+	   :isnt
+	   :truep
+	   :nilp))
 
